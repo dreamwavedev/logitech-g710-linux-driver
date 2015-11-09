@@ -36,10 +36,10 @@ static const u8 g710_plus_key_map[LOGITECH_KEY_MAP_SIZE] = {
     0, /* unused */
     0, /* unused */
     0, /* unused */
-    KEY_F13, /* M1 */
+    KEY_F13, /* M1 */ // 4
     KEY_F14, /* M2 */
     KEY_F15, /* M3 */
-    KEY_F16, /* MR */
+    KEY_F16, /* MR */ // 7
     KEY_F17, /* G1 */
     KEY_F18, /* G2 */
     KEY_F19, /* G3 */
@@ -62,6 +62,7 @@ struct lg_g710_plus_data {
     struct hid_report *other_buttons_led_report; /* Controls the backlight of other buttons */
     struct hid_report *gamemode_report; /* Controls the backlight of other buttons */
 
+    u8 modifier_key; /* holds the state of the 4 modifier keys, ie which one is active */
     u16 macro_button_state; /* Holds the last state of the G1-G6, M1-MR buttons. Required to know which buttons were pressed and which were released */
     struct hid_device *hdev; 
     struct input_dev *input_dev;
@@ -78,7 +79,10 @@ static ssize_t lg_g710_plus_show_led_macro(struct device *device, struct device_
 static ssize_t lg_g710_plus_store_led_macro(struct device *device, struct device_attribute *attr, const char *buf, size_t count);
 static ssize_t lg_g710_plus_show_led_keys(struct device *device, struct device_attribute *attr, char *buf);
 static ssize_t lg_g710_plus_store_led_keys(struct device *device, struct device_attribute *attr, const char *buf, size_t count);
+static void lg_g710_plus_store_led_macro_internal(struct lg_g710_plus_data* data, unsigned long key_mask);
 
+// registers virtual files
+// TODO Create one to show active modifier key
 static DEVICE_ATTR(led_macro, 0660, lg_g710_plus_show_led_macro, lg_g710_plus_store_led_macro);
 static DEVICE_ATTR(led_keys,  0660, lg_g710_plus_show_led_keys,  lg_g710_plus_store_led_keys);
 
@@ -88,18 +92,66 @@ static struct attribute *lg_g710_plus_attrs[] = {
         NULL,
 };
 
+// get the mapped keycode for the active m key
+// static int lg_g710_plus_extra_mr_active(struct hid_device *hdev) {
+//     struct lg_g710_plus_data* g710_data = lg_g710_plus_get_data(hdev);
+//     for (i = 4; i <= 7; i++) {
+//         if (BIT_AT(g710_data->macro_button_state, i)) {
+//             // store the keycode so it can easily emit later when G# keys are pressed
+//             g710_data->modifier_key = g710_plus_key_map[i];
+//
+// //             return g710_plus_key_map[i];
+//             break; // this means that the first (sorted by lowest number) M# key will win
+//         }
+//     }
+//     return -1;
+// }
+
+// handles key presses
 static int lg_g710_plus_extra_key_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size) {
     u8 i;
     u16 keys_pressed;
     struct lg_g710_plus_data* g710_data = lg_g710_plus_get_data(hdev);
+//     bool modifier_changed = false;
     if (g710_data == NULL || size < 3 || data[0] != 3) {
         return 1; /* cannot handle the event */
     }
 
     keys_pressed= data[1] << 8 | data[2];
     for (i = 0; i < LOGITECH_KEY_MAP_SIZE; i++) {
+        // != -> mapped key
+        // BIT_AT() -> key state changed from last state
         if (g710_plus_key_map[i] != 0 && (BIT_AT(keys_pressed, i) != BIT_AT(g710_data->macro_button_state, i))) {
-            input_report_key(g710_data->input_dev, g710_plus_key_map[i], BIT_AT(keys_pressed, i) != 0);
+            // TODO Check for M# key and record state.
+            if (g710_plus_key_map[i] == KEY_F13 ||
+                g710_plus_key_map[i] == KEY_F14 ||
+                g710_plus_key_map[i] == KEY_F15 ||
+                g710_plus_key_map[i] == KEY_F16
+            ) {
+              // set led
+//               modifier_changed = true; // TODO perhaps just set right here rather than other for loop
+                // store the keycode so it can easily emit later when G# keys are pressed
+                g710_data->modifier_key = g710_plus_key_map[i];
+                // since no break, last one wins.
+                // only ugly part is that we could call led multiple times if multiple M# keys are pressed
+                //unsigned long key_mask
+                lg_g710_plus_store_led_macro_internal(g710_data, 1 << (i - 4));
+
+                input_report_key(g710_data->input_dev, g710_plus_key_map[i], BIT_AT(keys_pressed, i) != 0);
+            }
+            else {
+                // it is a G# key!! emit the modifier
+                if (BIT_AT(keys_pressed, i) != 0) {
+                    // changing to pressed: modifier first then g key
+                    input_report_key(g710_data->input_dev, g710_data->modifier_key, true);
+                    input_report_key(g710_data->input_dev, g710_plus_key_map[i], true);
+                }
+                else {
+                    // changing to non-pressed: g key then modifier
+                    input_report_key(g710_data->input_dev, g710_plus_key_map[i], false);
+                    input_report_key(g710_data->input_dev, g710_data->modifier_key, false);
+                }
+            }
         }
     }
     input_sync(g710_data->input_dev);
@@ -107,6 +159,7 @@ static int lg_g710_plus_extra_key_event(struct hid_device *hdev, struct hid_repo
     return 1;
 }
 
+// gets macro lights state from keyboard
 static int lg_g710_plus_extra_led_mr_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size) {
     struct lg_g710_plus_data* g710_data = lg_g710_plus_get_data(hdev);
     g710_data->led_macro= (data[1] >> 4) & 0xF;
@@ -114,6 +167,7 @@ static int lg_g710_plus_extra_led_mr_event(struct hid_device *hdev, struct hid_r
     return 1;
 }
 
+// gets leds lights state from keyboard
 static int lg_g710_plus_extra_led_keys_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size) {
     struct lg_g710_plus_data* g710_data = lg_g710_plus_get_data(hdev);
     g710_data->led_keys= data[1] << 4 | data[2];
@@ -121,6 +175,7 @@ static int lg_g710_plus_extra_led_keys_event(struct hid_device *hdev, struct hid
     return 1;
 }
 
+// main input handler
 static int lg_g710_plus_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
 {
     switch(report->id) {
@@ -285,6 +340,16 @@ static ssize_t lg_g710_plus_show_led_keys(struct device *device, struct device_a
     return 0;
 }
 
+static void lg_g710_plus_store_led_macro_internal(struct lg_g710_plus_data* data, unsigned long key_mask)
+{
+//     struct lg_g710_plus_data* data = lg_g710_plus_get_data(hdev);
+    spin_lock(&data->lock);
+    data->mr_buttons_led_report->field[0]->value[0]= (key_mask & 0xF) << 4;
+    hidhw_request(data->hdev, data->mr_buttons_led_report, REQTYPE_WRITE);
+    spin_unlock(&data->lock);
+}
+
+// presumably the store and show correspond to fio opperations on virtual file, read/write.
 static ssize_t lg_g710_plus_store_led_macro(struct device *device, struct device_attribute *attr, const char *buf, size_t count)
 {
     unsigned long key_mask;
