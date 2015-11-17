@@ -40,6 +40,27 @@ Usage
 --------------------------
 Use the key shortcut utilities provided by your DE to make use of the additional buttons.
 
+Invoke the xmodmap to map the M1, M2, M3, and MR keys to modifier keys (ctrl, shift, etc). This can be done globally or in a bashrc file, etc. The driver will emit a press event for the active M* key when a G# key is pressed. For example:
+
+- M1 pressed
+  - emit M1 down
+  - emit M1 up
+- G1 pressed
+  - emit M1 down
+  - emit G1 down
+  - emit G2 up
+  - emit M1 up
+
+The end result is it looks like each G# key is pressed together with a modifier. Eqivalent to ctrl+G1, etc. Key mapping applications should pick the combination which allows for the original G1-6 * 3 = 18 keys instead of just G1-6 + 3 = 9.
+
+```
+./xmodmap
+```
+
+End result should be similar to https://www.youtube.com/watch?v=uzDpQJYsC1E.
+
+Example of utilizing exposed leds https://gist.github.com/boombatower/ccdab16926c919eee6b2.
+
 API
 --------------------------
 The driver also exposes a way to set the keyboard backlight intensity. That is done by writing either:
