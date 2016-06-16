@@ -36,16 +36,16 @@ static const u8 g710_plus_key_map[LOGITECH_KEY_MAP_SIZE] = {
     0, /* unused */
     0, /* unused */
     0, /* unused */
-    KEY_F13, /* M1 */ // 4
-    KEY_F14, /* M2 */
-    KEY_F15, /* M3 */
-    KEY_F16, /* MR */ // 7
-    KEY_F17, /* G1 */
-    KEY_F18, /* G2 */
-    KEY_F19, /* G3 */
-    KEY_F20, /* G4 */
-    KEY_F21, /* G5 */
-    KEY_F22, /* G6 */
+    KEY_CUT, /* M1 */ // 4
+    KEY_COPY, /* M2 */
+    KEY_PASTE, /* M3 */
+    KEY_UNDO, /* MR */ // 7
+    KEY_F13, /* G1 */
+    KEY_F14, /* G2 */
+    KEY_F15, /* G3 */
+    KEY_F16, /* G4 */
+    KEY_F17, /* G5 */
+    KEY_F18, /* G6 */
     0, /* unused */
     0, /* unused */
 };
