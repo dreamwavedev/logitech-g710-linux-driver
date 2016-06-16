@@ -88,3 +88,8 @@ where:
 
 Only values from 0-4 accepted
 </pre>
+
+
+This version is 100% a WIP and reflects my own noobish attempt at combining certain elements of Mikefaille's version and Bombatower's version so that it (hopefully) works on my Ubuntu based install with Plasma 4 as a DE.
+
+I was able to get Mikefaille's version to work quite well with the macro keys as normal modifiers, but Bombatower's version was having a bit of trouble sending outputs that qt could understand in the slightest. If this works for you, honestly just thank Wattos, Mikefaille, and Bombatower for their work--I repeat: THIS IS JUST A BODGE THAT I JURY-RIGGED TOGETHER IN ABOUT 15 MINUTES
