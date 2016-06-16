@@ -6,7 +6,7 @@ The Logitech G710+ mechanical keyboard is a great piece of hardware. Unfortunate
 This kernel driver allows the keys M1-MR and G1-G6 to be used.
 
 
-Instalation Instructions
+Installation Instructions
 -------------------------
 
 First you have to compile the driver:
